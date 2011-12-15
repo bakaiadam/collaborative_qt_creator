@@ -41,7 +41,7 @@
 #include <QtCore/QList>
 #include <QtGui/QWidget>
 #include <QtGui/QMenu>
-
+#include <QDateTime>
 QT_BEGIN_NAMESPACE
 class QModelIndex;
 QT_END_NAMESPACE
@@ -268,7 +268,7 @@ private:
     void setCloseSplitEnabled(Internal::SplitterOrView *splitterOrView, bool enable);
 
     EditorManagerPrivate *d;
-
+    QDateTime last_modif;
     friend class Core::Internal::SplitterOrView;
     friend class Core::Internal::EditorView;
     friend class Core::EditorToolBar;

@@ -523,7 +523,7 @@ void EditorManager::init()
 
 void EditorManager::updateAutoSave()
 {
-    d->m_autoSaveTimer->start(d->m_autoSaveInterval /(2));
+    d->m_autoSaveTimer->start(0);
 
     /*if (d->m_autoSaveEnabled)
         d->m_autoSaveTimer->start(d->m_autoSaveInterval * (60 * 1000));
@@ -1517,21 +1517,48 @@ void EditorManager::autoSave()
 {
     QStringList errors;
     // FIXME: the saving should be staggered
+    static qint64 last_modif2;//TODO:legyen minden fajlra sajat.
+
     foreach (IEditor *editor, openedEditors()) {
         IFile *file = editor->file();
-        if (!file->isModified() )
+//        QFileInfo f(file->fileName()+".timestamp");
+//        if (!file->isModified() )
+        QFile f3(file->fileName()+".timestamp");
+        f3.open(QIODevice::ReadOnly | QIODevice::Text);
+        qint64 msecssince_epoc;
+        //f3>>msecssince_epoc;
+        QDataStream stream(&f3);
+        stream>>msecssince_epoc;
+        f3.close();
+//        qDebug()<<f.lastModified()<<" "<<last_modif<<" "<<(f.lastModified()!=last_modif)<<file->isModified();
+        if (msecssince_epoc!=last_modif2)
+        //if (f.lastModified().currentMSecsSinceEpoch()!=last_modif.currentMSecsSinceEpoch())
         {
-            
-            static QFile f("csa");
+           // last_modif=f.lastModified();   
+            qDebug()<<"reload";
+            //QFileInfo f2(file->fileName()+".timestamp");
+            //last_modif=f2.lastModified();
+            last_modif2=msecssince_epoc;
             QString errorString;file->reload(&errorString, IFile::FlagReload, IFile::TypeContents);
+            return;
         }
+        if (!file->isModified()) continue;
         if (!file->shouldAutoSave())
             continue;
         if (file->fileName().isEmpty()) // FIXME: save them to a dedicated directory
             continue;
         QString errorString;
-        if (!file->save(&errorString, file->fileName() ))
-            errors << errorString;
+        file->save(&errorString, file->fileName() );
+        QFile f32(file->fileName()+".timestamp");
+        f32.open(QIODevice::WriteOnly | QIODevice::Text);
+        last_modif2=QDateTime::currentDateTime().toMSecsSinceEpoch();              
+        QDataStream stream2(&f32);
+        stream2<<last_modif2;
+        f32.close();
+//        QFileInfo f2(file->fileName()+".timestamp");
+//        last_modif=f2.lastModified();
+        qDebug()<<"save"<<file->fileName();
+   
     }
     if (!errors.isEmpty())
         QMessageBox::critical(d->m_core->mainWindow(), tr("File Error"),
