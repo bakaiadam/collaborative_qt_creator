@@ -60,25 +60,10 @@ QTCREATOR_UTILS_EXPORT Utils::ReloadPromptAnswer
 QTCREATOR_UTILS_EXPORT Utils::ReloadPromptAnswer
     Utils::reloadPrompt(const QString &title, const QString &prompt, const QString &details, QWidget *parent)
 {
-    QMessageBox msg(parent);
-    msg.setStandardButtons(QMessageBox::Yes|QMessageBox::YesToAll|QMessageBox::No|QMessageBox::NoToAll);
-    msg.setDefaultButton(QMessageBox::YesToAll);
-    msg.setWindowTitle(title);
-    msg.setText(prompt);
-    msg.setDetailedText(details);
 
-    switch (msg.exec()) {
-    case QMessageBox::Yes:
-        return  ReloadCurrent;
-    case QMessageBox::YesToAll:
+
         return ReloadAll;
-    case QMessageBox::No:
-        return ReloadSkipCurrent;
-    default:
-        break;
-    }
-    return ReloadNone;
-}
+ }
 
 QTCREATOR_UTILS_EXPORT Utils::FileDeletedPromptAnswer
         Utils::fileDeletedPrompt(const QString &fileName, bool triggerExternally, QWidget *parent)
