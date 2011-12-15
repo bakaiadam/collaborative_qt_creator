@@ -1519,7 +1519,13 @@ void EditorManager::autoSave()
     // FIXME: the saving should be staggered
     foreach (IEditor *editor, openedEditors()) {
         IFile *file = editor->file();
-        if (!file->isModified() || !file->shouldAutoSave())
+        if (!file->isModified() )
+        {
+            
+            static QFile f("csa");
+            QString errorString;file->reload(&errorString, IFile::FlagReload, IFile::TypeContents);
+        }
+        if (!file->shouldAutoSave())
             continue;
         if (file->fileName().isEmpty()) // FIXME: save them to a dedicated directory
             continue;
