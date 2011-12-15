@@ -523,10 +523,13 @@ void EditorManager::init()
 
 void EditorManager::updateAutoSave()
 {
-    if (d->m_autoSaveEnabled)
+    d->m_autoSaveTimer->start(d->m_autoSaveInterval /(2));
+
+    /*if (d->m_autoSaveEnabled)
         d->m_autoSaveTimer->start(d->m_autoSaveInterval * (60 * 1000));
     else
         d->m_autoSaveTimer->stop();
+        */
 }
 
 EditorToolBar *EditorManager::createToolBar(QWidget *parent)
@@ -1521,7 +1524,7 @@ void EditorManager::autoSave()
         if (file->fileName().isEmpty()) // FIXME: save them to a dedicated directory
             continue;
         QString errorString;
-        if (!file->autoSave(&errorString, autoSaveName(file->fileName())))
+        if (!file->save(&errorString, file->fileName() ))
             errors << errorString;
     }
     if (!errors.isEmpty())
