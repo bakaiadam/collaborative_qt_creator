@@ -1512,7 +1512,7 @@ bool EditorManager::saveFile(IFile *fileParam)
 
     return success;
 }
-
+#include <texteditor/basetextdocument.h>
 void EditorManager::autoSave()
 {
     QStringList errors;
@@ -1521,10 +1521,15 @@ void EditorManager::autoSave()
 
     foreach (IEditor *editor, openedEditors()) {
         IFile *file = editor->file();
+        
 //        QFileInfo f(file->fileName()+".timestamp");
 //        if (!file->isModified() )
         QFile f3(file->fileName()+".timestamp");
         f3.open(QIODevice::ReadOnly | QIODevice::Text);
+        TextEditor::BaseTextDocument *b=(TextEditor::BaseTextDocument *)file;
+        //b->d->m_document->toPlainText();
+        if (b!=NULL && b->d!=NULL && b->d->m_document!=NULL)
+        qDebug()<<b->d->m_document->toPlainText();        
         qint64 msecssince_epoc;
         //f3>>msecssince_epoc;
         QDataStream stream(&f3);

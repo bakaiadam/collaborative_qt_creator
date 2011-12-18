@@ -62,27 +62,6 @@
 namespace TextEditor {
 namespace Internal {
 
-class DocumentMarker : public ITextMarkable
-{
-    Q_OBJECT
-public:
-    DocumentMarker(QTextDocument *);
-
-    TextMarks marks() const { return m_marksCache; }
-
-    // ITextMarkable
-    bool addMark(ITextMark *mark, int line);
-    TextMarks marksAt(int line) const;
-    void removeMark(ITextMark *mark);
-    bool hasMark(ITextMark *mark) const;
-    void updateMark(ITextMark *mark);
-
-private:
-    double recalculateMaxMarkWidthFactor() const;
-
-    TextMarks m_marksCache; // not owned
-    QTextDocument *document;
-};
 
 DocumentMarker::DocumentMarker(QTextDocument *doc)
   : ITextMarkable(doc), document(doc)
@@ -179,29 +158,6 @@ void DocumentMarker::updateMark(ITextMark *mark)
 }
 
 } // namespace Internal
-
-class BaseTextDocumentPrivate
-{
-public:
-    explicit BaseTextDocumentPrivate(BaseTextDocument *q);
-
-    QString m_fileName;
-    QString m_defaultPath;
-    QString m_suggestedFileName;
-    QString m_mimeType;
-    TypingSettings m_typingSettings;
-    StorageSettings m_storageSettings;
-    TabSettings m_tabSettings;
-    ExtraEncodingSettings m_extraEncodingSettings;
-    QTextDocument *m_document;
-    Internal::DocumentMarker *m_documentMarker;
-    SyntaxHighlighter *m_highlighter;
-
-    bool m_fileIsReadOnly;
-    bool m_hasHighlightWarning;
-
-    int m_autoSaveRevision;
-};
 
 BaseTextDocumentPrivate::BaseTextDocumentPrivate(BaseTextDocument *q) :
     m_document(new QTextDocument(q)),

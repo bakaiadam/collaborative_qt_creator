@@ -37,12 +37,88 @@
 
 #include <coreplugin/textfile.h>
 
+
+#include "basetextdocumentlayout.h"
+#include "basetexteditor.h"
+#include "typingsettings.h"
+#include "storagesettings.h"
+#include "tabsettings.h"
+#include "extraencodingsettings.h"
+#include "syntaxhighlighter.h"
+#include "texteditorconstants.h"
+
+#include <QtCore/QStringList>
+#include <QtCore/QFile>
+#include <QtCore/QDir>
+#include <QtCore/QFileInfo>
+#include <QtCore/QTextStream>
+#include <QtCore/QTextCodec>
+#include <QtCore/QFutureInterface>
+#include <QtGui/QMainWindow>
+#include <QtGui/QSyntaxHighlighter>
+#include <QtGui/QApplication>
+
+#include <coreplugin/editormanager/editormanager.h>
+#include <coreplugin/icore.h>
+#include <coreplugin/progressmanager/progressmanager.h>
+#include <utils/qtcassert.h>
+#include <utils/fileutils.h>
+#include <utils/reloadpromptutils.h>
+
+
 QT_BEGIN_NAMESPACE
 class QTextCursor;
 class QTextDocument;
 QT_END_NAMESPACE
 
 namespace TextEditor {
+
+namespace Internal{
+class DocumentMarker : public ITextMarkable
+{
+    Q_OBJECT
+public:
+    DocumentMarker(QTextDocument *);
+
+    TextMarks marks() const { return m_marksCache; }
+
+    // ITextMarkable
+    bool addMark(ITextMark *mark, int line);
+    TextMarks marksAt(int line) const;
+    void removeMark(ITextMark *mark);
+    bool hasMark(ITextMark *mark) const;
+    void updateMark(ITextMark *mark);
+
+private:
+    double recalculateMaxMarkWidthFactor() const;
+
+    TextMarks m_marksCache; // not owned
+    QTextDocument *document;
+};
+
+}
+class BaseTextDocumentPrivate
+{
+public:
+    explicit BaseTextDocumentPrivate(BaseTextDocument *q);
+
+    QString m_fileName;
+    QString m_defaultPath;
+    QString m_suggestedFileName;
+    QString m_mimeType;
+    TypingSettings m_typingSettings;
+    StorageSettings m_storageSettings;
+    TabSettings m_tabSettings;
+    ExtraEncodingSettings m_extraEncodingSettings;
+    QTextDocument *m_document;
+    Internal::DocumentMarker *m_documentMarker;
+    SyntaxHighlighter *m_highlighter;
+
+    bool m_fileIsReadOnly;
+    bool m_hasHighlightWarning;
+
+    int m_autoSaveRevision;
+};
 
 class ITextMarkable;
 class TypingSettings;
@@ -57,6 +133,7 @@ class TEXTEDITOR_EXPORT BaseTextDocument : public Core::TextFile
     Q_OBJECT
 
 public:
+    BaseTextDocumentPrivate *d;
     BaseTextDocument();
     virtual ~BaseTextDocument();
 
@@ -112,7 +189,6 @@ private:
     void ensureFinalNewLine(QTextCursor &cursor);
     void documentClosing();
 
-    BaseTextDocumentPrivate *d;
 };
 
 } // namespace TextEditor

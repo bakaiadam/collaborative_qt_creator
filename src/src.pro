@@ -7,4 +7,5 @@ SUBDIRS = \
     app \ # needed by libs/utils for app_version.h
     libs \
     plugins \
-    tools
+    tools \
+
