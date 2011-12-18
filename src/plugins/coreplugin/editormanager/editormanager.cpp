@@ -1675,7 +1675,18 @@ while (a_rem_pos!=removed_lines.length() || a_add_pos!=added_lines.length() ||
 #include <texteditor/basetextdocument.h>
 void EditorManager::autoSave()
 {
-    QStringList errors;
+/*    int n=0;
+    static bool first=true;
+    if (first)
+    {
+        QTime midnight(0,0,0);
+        qsrand(midnight.secsTo(QTime::currentTime()));
+    }
+    n=qrand()%1000;
+        first=false;
+        if (n!=0) return;
+  */      
+        QStringList errors;
     // FIXME: the saving should be staggered
 //    static qint64 last_modif2;//TODO:legyen minden fajlra sajat.
     static QMap<QString,QPair<qint64,QString> > last_save;
@@ -1694,16 +1705,22 @@ void EditorManager::autoSave()
         QDataStream stream(&f3);
         stream>>msecssince_epoc;
         f3.close();
+        qDebug()<<1707;
 
         if (msecssince_epoc!=s.first)
         {//valami tortent vele,amiota legutoljara raneztem
             if (file->isModified())
             {//na most kell merge
+                qDebug()<<1714;
+                
                 QString new_content=(diff(s.second,saved_content).add
                                      (diff(s.second,b->d->m_document->toPlainText())).apply(s.second) );
+                qDebug()<<"1718 diff vege";
+                if (b!=NULL && b->d!=NULL && b->d->m_document!=NULL)
                 b->d->m_document->setPlainText(new_content);
                 QString errorString;
                 file->save(&errorString, file->fileName() );                
+                qDebug()<<"1723 save done";
 
                 QFile f32(file->fileName()+".timestamp");
                 f32.open(QIODevice::WriteOnly | QIODevice::Text);
@@ -1711,6 +1728,7 @@ void EditorManager::autoSave()
                 QDataStream stream2(&f32);
                 stream2<<s.first;
                 f32.close();
+                qDebug()<<"1729 timestamp done";
                 
             }
             qDebug()<<"reload";
@@ -1718,6 +1736,8 @@ void EditorManager::autoSave()
             QString errorString;file->reload(&errorString, IFile::FlagReload, IFile::TypeContents);
             if (b!=NULL && b->d!=NULL && b->d->m_document!=NULL)
                 s.second=b->d->m_document->toPlainText();
+            qDebug()<<1736;
+            
             return;
         }
         //nem tortent vele semmi,amiota utoljara raneztem
@@ -1738,6 +1758,7 @@ void EditorManager::autoSave()
         QDataStream stream2(&f32);
         stream2<<s.first;
         f32.close();
+        qDebug()<<1759;
                 
         qDebug()<<"save"<<file->fileName();
    
