@@ -1512,56 +1512,233 @@ bool EditorManager::saveFile(IFile *fileParam)
 
     return success;
 }
+
+#include <QtAlgorithms>
+#include <QString>
+#include <QPair>
+#include <QDebug>
+#include <QStringList>
+class diff{
+public:
+    void print_state()
+    {
+        foreach(int r,removed_lines)
+            qDebug()<<r<<"r";
+        for (int i=0;i<added_lines.length();i++)
+        {
+            QPair<int,QString> a(added_lines[i]);
+            qDebug()<<a.first<<a.second;
+        }
+    }
+
+    diff(){}
+    diff(QString a,QString b){
+        //qDebug()<<a<<b;
+        QStringList orig_l=a.split("\n");
+        QStringList new_l=b.split("\n");
+        //qDebug()<<a<<b;
+        //először végigmegyek és megnézem azt,h miket kell kivenni,aztán utána végig megyek és beleteszem azokat amiket bele kell tenni
+        int old_pos=0;
+        foreach(QString o_line,orig_l)
+        {
+            if (!new_l.contains(o_line))
+            removed_lines.push_back(old_pos);
+            old_pos++;
+        }
+        //most azok a sorok jonnek aik benne vannak a new-ban de az origban nem
+        int new_pos=0;
+        foreach(QString n_line,new_l)
+        {
+            if (!orig_l.contains(n_line))
+            added_lines.push_back(QPair<int,QString>(new_pos,n_line));
+            new_pos++;
+        }
+        //qDebug()<<"38 kezd";
+        //print_state();
+        //qDebug()<<"38 veg";
+    }
+    QString apply(QString old){
+        QStringList lines=old.split("\n");
+        int a_rem_pos=0;
+        int a_add_pos=0;
+        int old_row_num=0;
+        QString ret="";
+     //   qDebug()<<48;
+//print_state();
+        QStringList ret2;
+        int rpos=0;
+        int apos=0;
+        int pos=0;
+        foreach (QString l,lines)
+        {
+            if (rpos!=removed_lines.length() && pos==removed_lines[rpos])
+            {
+                rpos++;
+            }
+            else
+//                ret2.push_back(l);
+                ret+=l+"\n";
+            if (apos!=added_lines.length() && pos==added_lines[apos].first)
+            {
+//                ret2.push_back(added_lines[apos].second);
+                ret+=(added_lines[apos].second)+"\n";
+                apos++;
+            }
+
+            pos++;
+        }
+
+//        foreach(QPair<int,QString> a,added_lines)
+//            qDebug()<<a.first<<a.second;
+/*
+        while (a_rem_pos!=removed_lines.length() || a_add_pos!=added_lines.length() )
+        {
+            bool modif=false;
+           // qDebug()<<a_rem_pos<<removed_lines.length()<<a_add_pos<<added_lines.length();
+            if (removed_lines.length()!=a_rem_pos && removed_lines[a_rem_pos]==old_row_num)
+            {
+             //   modif=true;
+                a_rem_pos++;
+            }
+            else
+                if (old_row_num<lines.length()) ret+=lines[old_row_num]+"\n";
+            if (added_lines.length()!=a_add_pos && added_lines[a_add_pos].first==old_row_num)
+            {
+                modif=true;
+                ret+=added_lines[a_add_pos].second+"\n";
+                a_add_pos++;            
+            }
+            if (!modif)
+                old_row_num++;
+        }
+       return ret;
+  */  }
+    diff& operator+(diff &a){return *this;}//ezt valamiert nem tudom jol meghivni
+    diff add(diff b){
+      //  print_state();b.print_state();
+    diff ret;
+    int a_rem_pos=0;
+    int a_add_pos=0;
+    int b_rem_pos=0;
+    int b_add_pos=0;
+    int new_row_num=0;
+    int old_row_num=0;
+    ret.removed_lines+=ret.removed_lines+b.removed_lines;
+    qSort(ret.removed_lines);
+    ret.added_lines=added_lines+b.added_lines;
+    qSort(ret.added_lines);
+    return ret;
+    //a cucc lényege az,h addig megy majd a kor,ameddig mindenki megtehette amit akart az old_row_num-mal.aztan utana novelodik
+    /*
+while (a_rem_pos!=removed_lines.length() || a_add_pos!=added_lines.length() ||
+           b_rem_pos!=b.removed_lines.length() || b_add_pos!=b.added_lines.length())
+    {
+//        qDebug()<<a_rem_pos<<removed_lines.length()<<a_add_pos<<added_lines.length()<<b_rem_pos<<b.removed_lines.length()<<b_add_pos<<b.added_lines.length()<<old_row_num;
+        bool modif=false;
+        if (removed_lines.length()!=a_rem_pos && removed_lines[a_rem_pos]==old_row_num)
+        {
+            modif=true;
+            ret.removed_lines.push_back(new_row_num);a_rem_pos++;
+        }
+        if (b.removed_lines.length()!=b_rem_pos && b.removed_lines[b_rem_pos]==old_row_num)
+        {
+            modif=true;
+            ret.removed_lines.push_back(new_row_num);b_rem_pos++;
+        }
+        
+        if (added_lines.length()!=a_add_pos && added_lines[a_add_pos].first==old_row_num)
+        {
+            modif=true;
+            ret.added_lines.push_back(QPair<int,QString>(new_row_num,added_lines[a_add_pos].second) );a_add_pos++;
+        }
+
+        if (b.added_lines.length()!=b_add_pos && b.added_lines[b_add_pos].first==old_row_num)
+        {
+            modif=true;
+            ret.added_lines.push_back(QPair<int,QString>(new_row_num,b.added_lines[b_add_pos].second) );b_add_pos++;
+        }
+        new_row_num++;
+            old_row_num++;
+        
+    }
+*/    
+//    print_state();b.print_state();
+    return ret;
+    }
+
+    QList<int> removed_lines;
+    QList<QPair<int,QString> > added_lines;
+};
+
+
+#include <sys/fcntl.h>
 #include <texteditor/basetextdocument.h>
 void EditorManager::autoSave()
 {
     QStringList errors;
     // FIXME: the saving should be staggered
-    static qint64 last_modif2;//TODO:legyen minden fajlra sajat.
-
+//    static qint64 last_modif2;//TODO:legyen minden fajlra sajat.
+    static QMap<QString,QPair<qint64,QString> > last_save;
     foreach (IEditor *editor, openedEditors()) {
         IFile *file = editor->file();
+        QFile orig_file(file->fileName());
+        QString saved_content=QTextStream(&orig_file).readAll();
+        orig_file.close();
+        TextEditor::BaseTextDocument *b=(TextEditor::BaseTextDocument *)file;
         
-//        QFileInfo f(file->fileName()+".timestamp");
-//        if (!file->isModified() )
+        QPair<qint64,QString> &s=last_save[file->fileName()];
+        
         QFile f3(file->fileName()+".timestamp");
         f3.open(QIODevice::ReadOnly | QIODevice::Text);
-        TextEditor::BaseTextDocument *b=(TextEditor::BaseTextDocument *)file;
-        //b->d->m_document->toPlainText();
-        if (b!=NULL && b->d!=NULL && b->d->m_document!=NULL)
-        qDebug()<<b->d->m_document->toPlainText();        
         qint64 msecssince_epoc;
-        //f3>>msecssince_epoc;
         QDataStream stream(&f3);
         stream>>msecssince_epoc;
         f3.close();
-//        qDebug()<<f.lastModified()<<" "<<last_modif<<" "<<(f.lastModified()!=last_modif)<<file->isModified();
-        if (msecssince_epoc!=last_modif2)
-        //if (f.lastModified().currentMSecsSinceEpoch()!=last_modif.currentMSecsSinceEpoch())
-        {
-           // last_modif=f.lastModified();   
+
+        if (msecssince_epoc!=s.first)
+        {//valami tortent vele,amiota legutoljara raneztem
+            if (file->isModified())
+            {//na most kell merge
+                QString new_content=(diff(s.second,saved_content).add
+                                     (diff(s.second,b->d->m_document->toPlainText())).apply(s.second) );
+                b->d->m_document->setPlainText(new_content);
+                QString errorString;
+                file->save(&errorString, file->fileName() );                
+
+                QFile f32(file->fileName()+".timestamp");
+                f32.open(QIODevice::WriteOnly | QIODevice::Text);
+                s.first=QDateTime::currentDateTime().toMSecsSinceEpoch();              
+                QDataStream stream2(&f32);
+                stream2<<s.first;
+                f32.close();
+                
+            }
             qDebug()<<"reload";
-            //QFileInfo f2(file->fileName()+".timestamp");
-            //last_modif=f2.lastModified();
-            last_modif2=msecssince_epoc;
+            s.first=msecssince_epoc;
             QString errorString;file->reload(&errorString, IFile::FlagReload, IFile::TypeContents);
+            if (b!=NULL && b->d!=NULL && b->d->m_document!=NULL)
+                s.second=b->d->m_document->toPlainText();
             return;
         }
-        if (!file->isModified()) continue;
+        //nem tortent vele semmi,amiota utoljara raneztem
+        if (!file->isModified()) continue;//es en se modositottam.
         if (!file->shouldAutoSave())
             continue;
         if (file->fileName().isEmpty()) // FIXME: save them to a dedicated directory
             continue;
         QString errorString;
         file->save(&errorString, file->fileName() );
+
+        if (b!=NULL && b->d!=NULL && b->d->m_document!=NULL)
+            s.second=b->d->m_document->toPlainText();
+        
         QFile f32(file->fileName()+".timestamp");
         f32.open(QIODevice::WriteOnly | QIODevice::Text);
-        last_modif2=QDateTime::currentDateTime().toMSecsSinceEpoch();              
+        s.first=QDateTime::currentDateTime().toMSecsSinceEpoch();              
         QDataStream stream2(&f32);
-        stream2<<last_modif2;
+        stream2<<s.first;
         f32.close();
-//        QFileInfo f2(file->fileName()+".timestamp");
-//        last_modif=f2.lastModified();
+                
         qDebug()<<"save"<<file->fileName();
    
     }
