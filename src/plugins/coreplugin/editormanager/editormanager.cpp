@@ -481,6 +481,7 @@ EditorManager::EditorManager(ICore *core, QWidget *parent) :
     d->m_windowPopup = new OpenEditorsWindow(this);
 
     d->m_autoSaveTimer = new QTimer(this);
+    d->m_autoSaveTimer->setSingleShot(true);
     connect(d->m_autoSaveTimer, SIGNAL(timeout()), SLOT(autoSave()));
     updateAutoSave();
 }
@@ -1563,7 +1564,7 @@ public:
             }
             if (e.second.type==1)
             {
-                added_lines.push_back(QPair<int,QString>(e.second.beforeIdx,"") );
+                added_lines.push_back(QPair<int,QString>(e.second.beforeIdx,e.first) );
             }
         }//ez meg mindig szar.de ennek már van valami esélye rá h jól működjön.
         /*
@@ -1736,6 +1737,7 @@ void EditorManager::autoSave()
         if (n!=0) return;
   */      
         QStringList errors;
+                    QString errorString;
     // FIXME: the saving should be staggered
 //    static qint64 last_modif2;//TODO:legyen minden fajlra sajat.
     static QMap<QString,QPair<qint64,QString> > last_save;
@@ -1749,8 +1751,12 @@ void EditorManager::autoSave()
 */
         int fd = open(QString(file->fileName()+".lock").toAscii().data(),O_RDWR|O_CREAT,S_IRUSR|S_IWUSR);
         if (fd==-1)
-            printf("%s\n",strerror(errno));
-        flock(fd,LOCK_EX);
+          {
+            printf("ERROR:%s\n",strerror(errno));
+            continue;
+          }
+        
+            flock(fd,LOCK_EX);
                 
         QFile orig_file(file->fileName());
                 orig_file.open(QIODevice::ReadOnly | QIODevice::Text);
@@ -1767,7 +1773,7 @@ void EditorManager::autoSave()
         stream>>msecssince_epoc;
         f3.close();
 //        qDebug()<<1707;
-        if (msecssince_epoc!=s.first)
+        if (msecssince_epoc!=s.first )
         {//valami tortent vele,amiota legutoljara raneztem
             qDebug()<<__LINE__;
             bool was_merge=false;
@@ -1776,8 +1782,25 @@ void EditorManager::autoSave()
             {//na most kell merge
                 qDebug()<<1714;
                 was_merge=true;
-                QString new_content=(diff(s.second,saved_content).add
+                QStringList alist=s.second.split("\n");
+                vector<QString> orig(alist.begin(),alist.end());//original content
+                QStringList otherslist=saved_content.split("\n");
+                vector<QString> others(otherslist.begin(),otherslist.end());
+                
+                QString orig_content=b->d->m_document->toPlainText();
+                QStringList mylist=orig_content.split("\n");
+                vector<QString> my(mylist.begin(),mylist.end());//original content
+                dtl::Diff3< QString > diff3(orig, others, my);
+                diff3.compose();
+                vector<QString> merged_seq = diff3.getMergedSequence();
+                
+                
+                QString new_content;
+                for (int k=0;k<merged_seq.size();k++)
+                  new_content+=merged_seq[k]+(k==merged_seq.size()-1?"":"\n");
+                /*QString new_content=(diff(s.second,saved_content).add
                                      (diff(s.second,b->d->m_document->toPlainText())).apply(s.second) );
+                */
                 qDebug()<<"1718 diff vege,";
                 qDebug()<<"kimenet:"<<new_content;
 /*                if (b!=NULL && b->d!=NULL && b->d->m_document!=NULL)
@@ -1791,7 +1814,7 @@ void EditorManager::autoSave()
                 fprintf(fid,"%s",new_content.toAscii().data());
                 fclose(fid);
                 */
-                QFile act_file(file->fileName());
+                /*QFile act_file(file->fileName());
                 qDebug()<<__LINE__;
                 if (!act_file.open(QIODevice::WriteOnly | QIODevice::Text)) continue;
                 qDebug()<<__LINE__;
@@ -1800,6 +1823,10 @@ void EditorManager::autoSave()
                 stream<<new_content;
                 qDebug()<<__LINE__;
                 act_file.close();
+                */
+                b->d->m_document->setPlainText(new_content);
+                file->save(&errorString, file->fileName() );
+                b->d->m_document->setPlainText(orig_content);
                 
                 qDebug()<<"1723 save done";
 
@@ -1852,8 +1879,12 @@ void EditorManager::autoSave()
             //if (addnum_before!=remove_num_before)
               {
                // texteditor->gotoLine(current_line-1,colnum);
-                texteditor->gotoLine(current_line+addnum_before-remove_num_before,colnum-1);//FIXME,nem biztos h mindig csak eggyel tobb
-//                texteditor->gotoLine(0,0);
+              int lineshift=addnum_before-remove_num_before;
+//              if (lineshift==0 && addnum_before!=0) lineshift=-1;
+//                texteditor->gotoLine(current_line+lineshift,colnum-1);//FIXME,nem biztos h mindig csak eggyel tobb
+              texteditor->gotoLine(current_line+lineshift,colnum+(-1));
+
+              //                texteditor->gotoLine(0,0);
                 /*
                 if (addnum_before>remove_num_before //hozzáadtam sort. 
                     &&
@@ -1874,7 +1905,6 @@ void EditorManager::autoSave()
             continue;
             
 */      {
-            QString errorString;
         file->save(&errorString, file->fileName() );
 
         if (b!=NULL && b->d!=NULL && b->d->m_document!=NULL)
@@ -1901,7 +1931,7 @@ void EditorManager::autoSave()
                               errors.join(QLatin1String("\n")));
 
     m.unlock();
-
+d->m_autoSaveTimer->start();
 }
 
 MakeWritableResult
