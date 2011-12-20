@@ -1518,6 +1518,14 @@ bool EditorManager::saveFile(IFile *fileParam)
 #include <QPair>
 #include <QDebug>
 #include <QStringList>
+//#include <plugins/cppeditor/cppeditor.h>
+#include <dtl/dtl.hpp>
+#include <vector>
+using namespace std;
+
+using dtl::Diff;
+
+
 class diff{
 public:
     void print_state()
@@ -1533,16 +1541,48 @@ public:
 
     diff(){}
     diff(QString a,QString b){
+        //feltétlezem,h max egy sorban volt változás.
         //qDebug()<<a<<b;
         QStringList orig_l=a.split("\n");
         QStringList new_l=b.split("\n");
+
+        vector<QString> A(orig_l.begin(),orig_l.end());
+        vector<QString> B(new_l.begin(),new_l.end());
+        dtl::Diff< QString > d(A, B);
+        d.compose();
+        dtl::Ses<QString> ses= d.getSes();
+        vector< pair<QString,dtl::elemInfo> > seselemvec=ses.getSequence();
+        
+        //foreach( pair<QString,dtl::elemInfo> e, seselemvec)
+        for (int i=0;i<seselemvec.size();i++)
+        {
+            pair<QString,dtl::elemInfo> e=seselemvec[i];
+            if (e.second.type==-1)
+            {
+                removed_lines.push_back(e.second.beforeIdx);
+            }
+            if (e.second.type==1)
+            {
+                added_lines.push_back(QPair<int,QString>(e.second.beforeIdx,"") );
+            }
+        }//ez meg mindig szar.de ennek már van valami esélye rá h jól működjön.
+        /*
         //qDebug()<<a<<b;
         //először végigmegyek és megnézem azt,h miket kell kivenni,aztán utána végig megyek és beleteszem azokat amiket bele kell tenni
         int old_pos=0;
+        int newpos=0;
         foreach(QString o_line,orig_l)
         {
-            if (!new_l.contains(o_line))
-            removed_lines.push_back(old_pos);
+            if (new_l[newpos]!=o_line &&
+                    (newpos!=0 && new_l[newpos-1]!=o_line)
+                    &&
+                    (newpos!=new_l.size()-1 && new_l[newpos+1]!=o_line)
+                    )
+            {removed_lines.push_back(old_pos);
+            
+            }
+            else
+                newpos++;
             old_pos++;
         }
         //most azok a sorok jonnek aik benne vannak a new-ban de az origban nem
@@ -1556,6 +1596,7 @@ public:
         //qDebug()<<"38 kezd";
         //print_state();
         //qDebug()<<"38 veg";
+        */
     }
     QString apply(QString old){
         QStringList lines=old.split("\n");
@@ -1671,10 +1712,12 @@ while (a_rem_pos!=removed_lines.length() || a_add_pos!=added_lines.length() ||
     QList<QPair<int,QString> > added_lines;
 };
 
+#include <plugins/texteditor/basetexteditor.h>
 #include <sys/file.h>
 #include <sys/fcntl.h>
 #include <errno.h>
 #include <unistd.h>
+using namespace TextEditor;
 int becsuk(int fd){return close(fd);}//ez valami hulye fordito hiba miatt kell
 #include <texteditor/basetextdocument.h>
 void EditorManager::autoSave()
@@ -1698,6 +1741,8 @@ void EditorManager::autoSave()
     static QMap<QString,QPair<qint64,QString> > last_save;
     foreach (IEditor *editor, openedEditors()) {
         IFile *file = editor->file();
+        BaseTextEditor* texteditor=(BaseTextEditor*) (editor);
+       // texteditor->gotoLine(0,0);qDebug()<<"gotoline";
         /*QFile f4(file->fileName()+".lock");
                 f4.open(QIODevice::WriteOnly | QIODevice::Text);
         flock(f4.handle(),LOCK_EX);
@@ -1708,6 +1753,7 @@ void EditorManager::autoSave()
         flock(fd,LOCK_EX);
                 
         QFile orig_file(file->fileName());
+                orig_file.open(QIODevice::ReadOnly | QIODevice::Text);
         QString saved_content=QTextStream(&orig_file).readAll();
         orig_file.close();
         TextEditor::BaseTextDocument *b=(TextEditor::BaseTextDocument *)file;
@@ -1724,11 +1770,12 @@ void EditorManager::autoSave()
         if (msecssince_epoc!=s.first)
         {//valami tortent vele,amiota legutoljara raneztem
             qDebug()<<__LINE__;
-          
+            bool was_merge=false;
             if (file->isModified())
+            //if (false)//nem kell mergeelés egyelőre
             {//na most kell merge
                 qDebug()<<1714;
-                
+                was_merge=true;
                 QString new_content=(diff(s.second,saved_content).add
                                      (diff(s.second,b->d->m_document->toPlainText())).apply(s.second) );
                 qDebug()<<"1718 diff vege,";
@@ -1765,14 +1812,60 @@ void EditorManager::autoSave()
                 qDebug()<<"1729 timestamp done";
                 
             }
+            //feltételezem hogy ritka a merge,reloadolásnál kell jól megnézni,h növekedik-e az input
+            //   CppEditor::Internal::CPPEditor* texteditor=(CppEditor::Internal::CPPEditor*) (editor);
+            int current_line=texteditor->currentLine();
+            int colnum=texteditor->currentColumn();
+            QString orig_content=b->d->m_document->toPlainText();
+            int occ=orig_content.count("\n");
             qDebug()<<"reload";
             s.first=msecssince_epoc;
             QString errorString;file->reload(&errorString, IFile::FlagReload, IFile::TypeContents);
             if (b!=NULL && b->d!=NULL && b->d->m_document!=NULL)
                 s.second=b->d->m_document->toPlainText();
             qDebug()<<1736;
-
-         } else
+//            QString new_content=s.second;
+            QString new_content=saved_content;
+            diff d(orig_content,new_content);            
+            /*int ncc=new_content.count("\n");
+            if (ncc!=occ)
+              //eggyel lejebb tolom
+              texteditor->gotoLine(ncc-occ+current_line,texteditor->currentColumn());
+            */
+            
+            int addnum_before=0;
+            for (int t=0;t<d.added_lines.count();t++)
+              if (d.added_lines[t].first<current_line )
+                addnum_before++;
+            int remove_num_before=0;
+            for (int t=0;t<d.removed_lines.count();t++)
+              if (d.removed_lines[t]<current_line )
+                remove_num_before++;
+            
+            qDebug()<<"orig cont:"<<orig_content;
+            qDebug()<<"new cont:"<<new_content;
+            qDebug()<<"added lines:"<<d.added_lines.length()<<"removed lines:"<<d.removed_lines.length();
+            qDebug()<<"masik added lines:"<<addnum_before<<"removed lines:"<<remove_num_before;
+            qDebug()<<"old line number:"<<current_line<<"new line number"<<(current_line+addnum_before-remove_num_before);
+            
+            d.print_state();
+            //if (addnum_before!=remove_num_before)
+              {
+               // texteditor->gotoLine(current_line-1,colnum);
+                texteditor->gotoLine(current_line+addnum_before-remove_num_before,colnum-1);//FIXME,nem biztos h mindig csak eggyel tobb
+//                texteditor->gotoLine(0,0);
+                /*
+                if (addnum_before>remove_num_before //hozzáadtam sort. 
+                    &&
+                    d.added_lines[0].first<current_line) //és előttem írtak hozzá
+                    texteditor->gotoLine(current_line+1,texteditor->currentColumn());//FIXME,nem biztos h mindig csak eggyel tobb
+                if (addnum_before<remove_num_before //kivettem sort. 
+                        &&
+                        d.removed_lines[0]<current_line) //és előttem vették ki
+                  texteditor->gotoLine(current_line-1,texteditor->currentColumn());//FIXME,nem biztos h mindig csak eggyel tobb
+                  */  
+              }
+} else
         //nem tortent vele semmi,amiota utoljara raneztem
         if (file->isModified()) //es en modositottam.
 /*        if (!file->shouldAutoSave())
@@ -1873,7 +1966,7 @@ bool EditorManager::saveFileAs(IFile *fileParam)
     const bool success = d->m_core->fileManager()->saveFile(file, absoluteFilePath);
     file->checkPermissions();
 
-    // @todo: There is an issue to be treated here. The new file might be of a different mime
+    // @todo: There is an issue to be treated here. The new file might be of a (diff)erent mime
     // type than the original and thus require a different editor. An alternative strategy
     // would be to close the current editor and open a new appropriate one, but this is not
     // a good way out either (also the undo stack would be lost). Perhaps the best is to

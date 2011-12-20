@@ -192,7 +192,15 @@ HEADERS += mainwindow.h \
     fileutils.h \
     externaltoolmanager.h \
     textfile.h \
-    generatedfile.h
+    generatedfile.h \
+    editormanager/dtl/variables.hpp \
+    editormanager/dtl/Ses.hpp \
+    editormanager/dtl/Sequence.hpp \
+    editormanager/dtl/Lcs.hpp \
+    editormanager/dtl/functors.hpp \
+    editormanager/dtl/dtl.hpp \
+    editormanager/dtl/Diff3.hpp \
+    editormanager/dtl/Diff.hpp
 
 FORMS += dialogs/newdialog.ui \
     actionmanager/commandmappings.ui \
@@ -230,4 +238,5 @@ else:unix {
     }
 }
 OTHER_FILES += editormanager/BinFiles.mimetypes.xml
+
 

@@ -2036,17 +2036,18 @@ void BaseTextEditorWidget::gotoLine(int line, int column)
     d->m_lastCursorChangeWasInteresting = false; // avoid adding the previous position to history
     const int blockNumber = line - 1;
     const QTextBlock &block = document()->findBlockByNumber(blockNumber);
-    if (block.isValid()) {
+    //if (block.isValid()) 
+    {
         QTextCursor cursor(block);
-        if (column > 0) {
+        //if (column > 0) {
             cursor.movePosition(QTextCursor::Right, QTextCursor::MoveAnchor, column);
-        } else {
-            int pos = cursor.position();
-            while (characterAt(pos).category() == QChar::Separator_Space) {
-                ++pos;
-            }
-            cursor.setPosition(pos);
-        }
+        //} else {
+          //  int pos = cursor.position();
+            //while (characterAt(pos).category() == QChar::Separator_Space) {
+          //      ++pos;
+            //}
+   //         cursor.setPosition(pos);
+     //   }
         setTextCursor(cursor);
         centerCursor();
     }
