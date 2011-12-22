@@ -1771,6 +1771,8 @@ void EditorManager::autoSave()
   QStringList errors;
   QString errorString;
   static QMap<QString,QPair<qint64,QString> > last_save;
+  static QMap<QString,QPair<int,int> > last_cur_pos;
+
   foreach (IEditor *editor, openedEditors()) {
       IFile *file = editor->file();
       BaseTextEditor* texteditor=(BaseTextEditor*) (editor);
@@ -1785,6 +1787,7 @@ void EditorManager::autoSave()
         {//valami tortent vele,amiota legutoljara raneztem
           if (file->isModified())
             {//na most kell merge
+              qDebug()<<"merge";
               QStringList alist=s.second.split("\n");
               vector<QString> orig(alist.begin(),alist.end());//original content
               QStringList otherslist=saved_content.split("\n");
@@ -1795,21 +1798,32 @@ void EditorManager::autoSave()
               vector<QString> my(mylist.begin(),mylist.end());//original content
               dtl::Diff3< QString > diff3(orig, others, my);
               diff3.compose();
+              diff3.merge();
               vector<QString> merged_seq = diff3.getMergedSequence();            
               QString new_content;
               for (int k=0;k<merged_seq.size();k++)
                 new_content+=merged_seq[k]+(k==merged_seq.size()-1?"":"\n");
               
               save_content(file->fileName(),new_content);
+              
               qint64 msecs=QDateTime::currentMSecsSinceEpoch();
               save_msecs_since_epoc(file->fileName(),msecs);
               
             }
+          QPair<int,int> &cur=last_cur_pos[file->fileName()];
+          if (cur.first==0 && cur.second==0)
+            {
+              cur.first=texteditor->currentLine();
+              cur.second=texteditor->currentColumn();
+            }
           int current_line=texteditor->currentLine();
           int colnum=texteditor->currentColumn();
+          current_line=cur.first;
+          colnum=cur.second;
           QString orig_content=b->d->m_document->toPlainText();
           int occ=orig_content.count("\n");
-          s.first=load_msecssince_epoc(file->fileName());
+          //s.first=load_msecssince_epoc(file->fileName());
+          s.first=msecssince_epoc;
           file->reload(&errorString, IFile::FlagReload, IFile::TypeContents);
           //b->d->m_document->setPlainText(saved_content);
           
@@ -1826,19 +1840,37 @@ void EditorManager::autoSave()
               remove_num_before++;
           {
             int lineshift=addnum_before-remove_num_before;
-            texteditor->gotoLine(current_line+lineshift,colnum+(-1));
+            qDebug()<<"cur line:"<<current_line<<"lineshift:"<<lineshift;
+//            texteditor->gotoLine(current_line+lineshift,colnum+(lineshift==0?-1:0) );
+                        texteditor->gotoLine(current_line+lineshift,colnum-1 );
+          
+                        cur.first=current_line+lineshift;
+                        //cur.second;
+                        
           }
           qDebug()<<__LINE__;
         } else
         //nem tortent vele semmi,amiota utoljara raneztem
         if (file->isModified()) //es en modositottam.
           {
-            qDebug()<<__LINE__;
+            QPair<int,int> &cur=last_cur_pos[file->fileName()];
+              {
+                cur.first=texteditor->currentLine();
+                cur.second=texteditor->currentColumn();
+              }
+            
+            
+            int current_line=texteditor->currentLine();
+            int colnum=texteditor->currentColumn();                      
+            qDebug()<<__LINE__<<current_line;
             s.second=b->d->m_document->toPlainText();
-            save_content(file->fileName(),s.second);
+//            save_content(file->fileName(),s.second);
+            file->save(&errorString,file->fileName());
             qint64 msecs=QDateTime::currentMSecsSinceEpoch();
             s.first=msecs;
             save_msecs_since_epoc(file->fileName(),msecs);
+            texteditor->gotoLine(current_line,colnum-1 );
+          
           }
       flock(fileno(fd),LOCK_UN);
       fclose(fd);
